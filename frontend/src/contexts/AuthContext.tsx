@@ -4,7 +4,7 @@ import { RegisterRequest } from "@interfaces/auth/RegisterRequest";
 import Api from "@services/api";
 import { login } from "@services/auth/login";
 import { register } from "@services/auth/register";
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
 
 interface AuthContextType {
 	register: (SignupRequest: RegisterRequest) => Promise<void>;
@@ -33,21 +33,26 @@ async function signupHandler(
 }
 
 export function AuthProvider(props: { children: ReactNode }) {
-	const [[isLoading, session], setSession] = useStorageState("token");
+        const [[isLoading, session], setSession] = useStorageState("token");
 
-	if (session)
-		Api.getInstance().then((api) => {
-			api.authorization = session;
-		});
+        // Synchronize API authorization header whenever the session changes
+        useEffect(() => {
+                Api.getInstance().then((api) => {
+                        api.authorization = session ?? null;
+                });
+        }, [session]);
 
 	return (
 		<AuthContext.Provider
 			value={{
 				register: (signupRequest) => signupHandler(signupRequest, setSession),
 				login: (loginRequest) => loginHandler(loginRequest, setSession),
-				logout: () => {
-					setSession(null);
-				},
+                                logout: () => {
+                                        setSession(null);
+                                        Api.getInstance().then((api) => {
+                                                api.authorization = null;
+                                        });
+                                },
 				session,
 				isLoading,
 			}}
